@@ -1,0 +1,50 @@
+name: Build Garden SMP Resource Pack
+
+on:
+  push:
+    paths:
+      - 'HerasGardenRP.zip'
+      - 'pack-src/**'
+      - '.github/workflows/build-resource-pack.yml'
+  pull_request:
+    paths:
+      - 'HerasGardenRP.zip'
+      - 'pack-src/**'
+      - '.github/workflows/build-resource-pack.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build resource pack overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build
+          mkdir -p build/pack
+          unzip -q HerasGardenRP.zip -d build/pack
+          cp -R pack-src/. build/pack/
+          (
+            cd build/pack
+            zip -qr ../GardenSMP-ResourcePack.zip .
+          )
+
+      - name: Verify Garden font aliases
+        shell: bash
+        run: |
+          test -f build/pack/assets/garden/font/classic.json
+          test -f build/pack/assets/garden/font/clean.json
+          unzip -t build/GardenSMP-ResourcePack.zip
+
+      - name: Upload resource pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: GardenSMP-ResourcePack
+          path: build/GardenSMP-ResourcePack.zip
+          if-no-files-found: error
