@@ -1,8 +1,5 @@
 {
   "providers": [
-    {
-      "type": "reference",
-      "id": "minecraft:uniform"
-    }
+    { "type": "reference", "id": "minecraft:uniform" }
   ]
 }

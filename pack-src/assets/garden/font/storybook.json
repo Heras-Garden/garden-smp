@@ -1,0 +1,6 @@
+{
+  "providers": [
+    { "type": "ttf", "file": "garden:storybook.ttf", "shift": [0.0, 0.0], "size": 11.0, "oversample": 2.0 },
+    { "type": "reference", "id": "minecraft:default" }
+  ]
+}
