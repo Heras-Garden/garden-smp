@@ -1,0 +1,113 @@
+name: Reset resource-pack mobs to vanilla
+
+on:
+  push:
+    paths:
+      - '.github/resource-pack-vanilla-mobs-trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  clean-pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify expected base pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object HerasGardenRP.zip)" = "c205d99e5ec3013922f7fd276348beb27061d2b1"
+
+      - name: Remove mob texture overrides
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import zipfile
+
+          pack = "HerasGardenRP.zip"
+          temp = "HerasGardenRP.cleaned.zip"
+
+          entity = "assets/minecraft/textures/entity/"
+          entity_keep_files = {
+              "alex.png",
+              "beacon_beam.png",
+              "elytra.png",
+              "enchanting_table_book.png",
+              "end_gateway_beam.png",
+              "fishing_hook.png",
+              "minecart.png",
+              "shield_base.png",
+              "shield_base_nopattern.png",
+              "sign.png",
+              "steve.png",
+              "trident.png",
+          }
+          entity_keep_dirs = (
+              "armorstand/",
+              "bed/",
+              "boat/",
+              "chest/",
+              "equipment/",
+              "projectiles/",
+              "shield/",
+              "signs/",
+          )
+
+          optifine_mob = "assets/minecraft/optifine/mob/"
+          cem = "assets/minecraft/optifine/cem/"
+          cem_keep = {
+              "assets/minecraft/optifine/cem/armor_stand.jem",
+              "assets/minecraft/optifine/cem/haybale_head.jpm",
+          }
+
+          def should_drop(name: str) -> bool:
+              if name.startswith(optifine_mob):
+                  return True
+              if name.startswith(cem):
+                  if name.endswith("/"):
+                      return False
+                  return name not in cem_keep
+              if name.startswith(entity):
+                  rel = name[len(entity):]
+                  if not rel or rel.endswith("/"):
+                      return False
+                  if rel in entity_keep_files:
+                      return False
+                  if rel.startswith(entity_keep_dirs):
+                      return False
+                  return True
+              return False
+
+          removed_files = []
+          with zipfile.ZipFile(pack, "r") as source, zipfile.ZipFile(temp, "w") as target:
+              for info in source.infolist():
+                  if should_drop(info.filename):
+                      if not info.is_dir():
+                          removed_files.append(info.filename)
+                      continue
+                  target.writestr(info, source.read(info.filename))
+
+          if len(removed_files) != 361:
+              raise SystemExit(f"Expected to remove 361 mob override files, removed {len(removed_files)}")
+
+          os.replace(temp, pack)
+          print(f"Removed {len(removed_files)} mob override files; retained vanilla-fallback pack.")
+          PY
+          unzip -t HerasGardenRP.zip
+
+      - name: Commit cleaned pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add HerasGardenRP.zip
+          git diff --cached --quiet && exit 0
+          git commit -m "Reset mob textures to vanilla"
+          git push origin HEAD:main
